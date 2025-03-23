@@ -4,6 +4,10 @@ from fastapi import FastAPI, Request
 from data import Data
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 import psycopg2
+
+import jwt
+# https://pyjwt.readthedocs.io/en/stable/
+
 from config import database_config
 
 connection = psycopg2.connect(
@@ -27,6 +31,9 @@ def get_data() -> None:
     # data = cursor.fetchone()
     return data
 
+def get_user_token() -> str:
+    token = jwt.encode({"some": "payload"}, "secret", algorithm="HS256")
+    return token
 
 
 @app.get("/")
@@ -37,8 +44,9 @@ async def root():
 async def items():
     random_timeout = random.randint(1, 4)
     print('random_timeout', random_timeout)
+    token = get_user_token()
     # time.sleep(random_timeout)
-    return {"timeout": random_timeout, "data": data.get_items_with_offset(random_timeout), "articles": get_data()}
+    return {"timeout": random_timeout, "token": token, "data": data.get_items_with_offset(random_timeout), "articles": get_data()}
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
