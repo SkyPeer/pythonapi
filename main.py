@@ -4,11 +4,13 @@ from fastapi import FastAPI, Request
 from data import Data
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 import psycopg2
+from pydantic import BaseModel
+
 
 import jwt
 # https://pyjwt.readthedocs.io/en/stable/
 
-from config import database_config
+from config import database_config, secret_key
 
 connection = psycopg2.connect(
     database=database_config["database"],
@@ -31,9 +33,13 @@ def get_data() -> None:
     # data = cursor.fetchone()
     return data
 
-def get_user_token() -> str:
-    token = jwt.encode({"some": "payload"}, "secret", algorithm="HS256")
+def encode_user_token() -> str:
+    token = jwt.encode({"some": "test_payload"}, secret_key, algorithm="HS256")
     return token
+
+def decode_user_token(token) -> str:
+    print(token)
+    return jwt.decode(token, secret_key, algorithms="HS256")
 
 
 @app.get("/")
@@ -42,11 +48,24 @@ async def root():
 
 @app.get("/data")
 async def items():
-    random_timeout = random.randint(1, 4)
-    print('random_timeout', random_timeout)
-    token = get_user_token()
+
+    # random_timeout = random.randint(1, 4)
+    # print('random_timeout', random_timeout)
     # time.sleep(random_timeout)
-    return {"timeout": random_timeout, "token": token, "data": data.get_items_with_offset(random_timeout), "articles": get_data()}
+
+    token = encode_user_token()
+    return {"token": token, "data": data.get_items_with_offset(5), "articles": get_data()}
+
+class Item(BaseModel):
+    token: str
+
+@app.post("/token")
+async def ecode(req: Item):
+    print('item', req.token)
+    token = req.token
+    decoded = decode_user_token(token)
+    return decoded
+
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
